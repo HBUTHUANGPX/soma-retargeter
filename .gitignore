@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual Environments
+.venv
+
+# IDE
+.vscode/settings.json
+
+# Log files, settings
+imgui.ini
+.vscode/browse.vc.db
+.vscode/browse.vc.db-wal
+.vscode/browse.vc.db-shm

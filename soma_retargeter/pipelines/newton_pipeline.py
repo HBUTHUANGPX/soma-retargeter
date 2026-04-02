@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 import warp as wp
 import numpy as np
 import newton
@@ -9,6 +11,7 @@ from tqdm import trange
 
 import soma_retargeter.assets.bvh as bvh_utils
 import soma_retargeter.utils.newton_utils as newton_utils
+from soma_retargeter.utils.newton_asset_utils import as_newton_usd_source
 import soma_retargeter.utils.io_utils as io_utils
 import soma_retargeter.pipelines.utils as pipeline_utils
 from soma_retargeter.pipelines.ik_objectives import IKSmoothJointFilter
@@ -71,11 +74,11 @@ class NewtonPipeline:
 
         if (self.target_type == pipeline_utils.TargetType.UNITREE_G1):
             self.robot_builder = newton.ModelBuilder()
-            self.robot_builder.add_mjcf(
-                newton.utils.download_asset("unitree_g1") / "mjcf/g1_29dof_rev_1_0.xml")
+            self.robot_builder.add_usd(
+                # newton.utils.download_asset("unitree_g1") / "mjcf/g1_29dof_rev_1_0.xml")
+                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")))
         elif (self.target_type == pipeline_utils.TargetType.Q1):
             self.robot_builder = newton.ModelBuilder()
-            from pathlib import Path
             self.robot_builder.add_mjcf(
                 Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml"))
         else:

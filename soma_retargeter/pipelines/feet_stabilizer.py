@@ -1,9 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
+
 import warp as wp
 
 import newton
+from soma_retargeter.utils.newton_asset_utils import as_newton_usd_source
 import soma_retargeter.utils.newton_utils as newton_utils
 import soma_retargeter.animation.ik as ik_utils
 import soma_retargeter.utils.io_utils as io_utils
@@ -30,19 +33,17 @@ class FeetStabilizer:
 
         if self.robot_type == 'unitree_g1':
             self.robot_builder = newton.ModelBuilder()
-            self.robot_builder.add_mjcf(
-                newton.utils.download_asset("unitree_g1") / "mjcf/g1_29dof_rev_1_0.xml")
+            self.robot_builder.add_usd(
+                # newton.utils.download_asset("unitree_g1") / "mjcf/g1_29dof_rev_1_0.xml")
+                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")))
         elif self.robot_type == 'q1':
             self.robot_builder = newton.ModelBuilder()
-            from pathlib import Path
             self.robot_builder.add_mjcf(
                 Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml"))
-            
-            self.num_body_count = self.robot_builder.body_count
-            self.ik_model = self._build_model(1)
         else:
             raise ValueError(f"[ERROR]: Unknown robot type {self.robot_type}")
-
+        self.num_body_count = self.robot_builder.body_count
+        self.ik_model = self._build_model(1)
         body_names = [newton_utils.get_name_from_label(label) for label in self.robot_builder.body_label]
         self.effector_mapped_indices = [body_names.index(body_name) for (body_name, _) in self.effectors.items()]
         self.effector_weights = [wp.vec2(*tr_weights) for (_, tr_weights) in self.effectors.items()]

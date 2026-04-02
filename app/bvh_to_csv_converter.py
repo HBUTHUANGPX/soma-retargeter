@@ -13,6 +13,7 @@ import soma_retargeter.assets.bvh as bvh_utils
 import soma_retargeter.assets.csv as csv_utils
 import soma_retargeter.utils.io_utils as io_utils
 import soma_retargeter.pipelines.utils as pipeline_utils
+from soma_retargeter.utils.newton_asset_utils import as_newton_usd_source
 
 from soma_retargeter.renderers.skeleton_renderer import SkeletonRenderer
 from soma_retargeter.renderers.mesh_renderer import SkeletalMeshRenderer
@@ -62,23 +63,23 @@ class Viewer:
         self.viewer.renderer.set_title("BVH to CSV Converter")
         self.viewer.register_ui_callback(lambda ui: self.gui(ui), position="free")
 
-        g1_builder = newton.ModelBuilder()
+        robot_builder = newton.ModelBuilder()
         from pathlib import Path
         if self.config['retarget_target'] == "unitree_g1":
             self.retarget_target_idx = self.retarget_target_options.index("unitree_g1")
-            g1_builder.add_mjcf(
-                newton.utils.download_asset("unitree_g1") / "mjcf/g1_29dof_rev_1_0.xml")
+            robot_builder.add_usd(
+                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")))
         elif self.config['retarget_target'] == "q1":
             self.retarget_target_idx = self.retarget_target_options.index("q1")
-            g1_builder.add_mjcf(
-                Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml"))
+            robot_builder.add_usd(
+                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")))
 
         self.num_robots = 1
         self.robot_offsets = [wp.transform(wp.vec3(0.0, i - (self.num_robots - 1) / 2.0, 0.0), wp.quat_identity()) for i in range(self.num_robots)]
         builder = newton.ModelBuilder()
         builder.add_ground_plane()
         for _ in range(self.num_robots):
-            builder.add_builder(g1_builder, wp.transform_identity())
+            builder.add_builder(robot_builder, wp.transform_identity())
         self.model = builder.finalize()
 
         self.viewer.set_model(self.model)

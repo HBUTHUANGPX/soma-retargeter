@@ -13,6 +13,7 @@ import soma_retargeter.assets.bvh as bvh_utils
 import soma_retargeter.assets.csv as csv_utils
 import soma_retargeter.utils.io_utils as io_utils
 import soma_retargeter.pipelines.utils as pipeline_utils
+from soma_retargeter.utils.animation_npz import save_retarget_npz
 from soma_retargeter.utils.newton_asset_utils import as_newton_usd_source
 
 from soma_retargeter.renderers.skeleton_renderer import SkeletonRenderer
@@ -473,6 +474,13 @@ class Viewer:
                     dst_path = export_path / pathlib.Path(batch[i]).relative_to(import_path).with_suffix(".csv")
                     dst_path.parent.mkdir(parents=True, exist_ok=True)
                     csv_utils.save_csv(dst_path, csv_buffer)
+                    save_retarget_npz(
+                        dst_path.with_suffix(".npz"),
+                        animations[i],
+                        csv_buffer,
+                        robot_name=self.config["retarget_target"],
+                        csv_header=csv_utils.UnitreeG129DOF_CSVConfig.csv_header,
+                    )
 
             nb_retargeted_motions += len(batch)
 

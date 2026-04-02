@@ -33,12 +33,34 @@ def quat_mul(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
     )
 
 
+def quat_mul_batch(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
+    x1, y1, z1, w1 = np.moveaxis(q1, -1, 0)
+    x2, y2, z2, w2 = np.moveaxis(q2, -1, 0)
+    return np.stack(
+        (
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+        ),
+        axis=-1,
+    ).astype(np.float32, copy=False)
+
+
 def quat_rotate(quat: np.ndarray, vec: np.ndarray) -> np.ndarray:
     q_xyz = quat[:3]
     qw = quat[3]
     uv = np.cross(q_xyz, vec)
     uuv = np.cross(q_xyz, uv)
     return vec + 2.0 * (qw * uv + uuv)
+
+
+def quat_rotate_batch(quat: np.ndarray, vec: np.ndarray) -> np.ndarray:
+    q_xyz = quat[..., :3]
+    qw = quat[..., 3:4]
+    uv = np.cross(q_xyz, vec)
+    uuv = np.cross(q_xyz, uv)
+    return (vec + 2.0 * (qw * uv + uuv)).astype(np.float32, copy=False)
 
 
 def quat_to_mat(quat: np.ndarray) -> np.ndarray:
@@ -60,6 +82,12 @@ def quat_conjugate(quat: np.ndarray) -> np.ndarray:
     return np.array([-quat[0], -quat[1], -quat[2], quat[3]], dtype=np.float32)
 
 
+def quat_conjugate_batch(quat: np.ndarray) -> np.ndarray:
+    result = np.array(quat, dtype=np.float32, copy=True)
+    result[..., :3] *= -1.0
+    return result
+
+
 def compute_global_joint_transforms(
     local_transforms: np.ndarray, parent_indices: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -67,22 +95,24 @@ def compute_global_joint_transforms(
     global_positions = np.zeros((num_frames, num_joints, 3), dtype=np.float32)
     global_rotations = np.zeros((num_frames, num_joints, 4), dtype=np.float32)
 
-    for frame_idx in range(num_frames):
-        for joint_idx in range(num_joints):
-            local_pos = local_transforms[frame_idx, joint_idx, :3]
-            local_rot = local_transforms[frame_idx, joint_idx, 3:7]
-            parent_idx = parent_indices[joint_idx]
-            if parent_idx < 0:
-                global_positions[frame_idx, joint_idx] = local_pos
-                global_rotations[frame_idx, joint_idx] = local_rot
-                continue
+    local_positions = local_transforms[..., :3]
+    local_rotations = local_transforms[..., 3:7]
 
-            parent_rot = global_rotations[frame_idx, parent_idx]
-            parent_pos = global_positions[frame_idx, parent_idx]
-            global_positions[frame_idx, joint_idx] = parent_pos + quat_rotate(
-                parent_rot, local_pos
-            )
-            global_rotations[frame_idx, joint_idx] = quat_mul(parent_rot, local_rot)
+    for joint_idx in range(num_joints):
+        parent_idx = parent_indices[joint_idx]
+        if parent_idx < 0:
+            global_positions[:, joint_idx] = local_positions[:, joint_idx]
+            global_rotations[:, joint_idx] = local_rotations[:, joint_idx]
+            continue
+
+        parent_rot = global_rotations[:, parent_idx]
+        parent_pos = global_positions[:, parent_idx]
+        global_positions[:, joint_idx] = parent_pos + quat_rotate_batch(
+            parent_rot, local_positions[:, joint_idx]
+        )
+        global_rotations[:, joint_idx] = quat_mul_batch(
+            parent_rot, local_rotations[:, joint_idx]
+        )
 
     return global_positions, global_rotations
 
@@ -125,20 +155,16 @@ def apply_visualization_frame(
 ) -> tuple[np.ndarray, np.ndarray]:
     # BVH global pose data is effectively Y-up; rotate it into MuJoCo's Z-up world.
     y_up_to_z_up = np.array([np.sqrt(0.5), 0.0, 0.0, np.sqrt(0.5)], dtype=np.float32)
-    corrected_positions = np.empty_like(positions)
-    corrected_rotations = np.empty_like(rotations)
+    expanded = np.broadcast_to(y_up_to_z_up, rotations.shape)
+    corrected_positions = quat_rotate_batch(expanded, positions)
+    corrected_rotations = quat_mul_batch(
+        quat_mul_batch(expanded, rotations),
+        quat_conjugate_batch(expanded),
+    )
 
-    for frame_idx in range(positions.shape[0]):
-        for joint_idx in range(positions.shape[1]):
-            corrected_positions[frame_idx, joint_idx] = quat_rotate(
-                y_up_to_z_up, positions[frame_idx, joint_idx]
-            )
-            corrected_rotations[frame_idx, joint_idx] = quat_mul(
-                quat_mul(y_up_to_z_up, rotations[frame_idx, joint_idx]),
-                quat_conjugate(y_up_to_z_up),
-            )
-
-    return corrected_positions, corrected_rotations
+    return corrected_positions.astype(np.float32, copy=False), corrected_rotations.astype(
+        np.float32, copy=False
+    )
 
 
 def draw_sphere(scene, position: np.ndarray, radius: float, rgba: np.ndarray) -> None:

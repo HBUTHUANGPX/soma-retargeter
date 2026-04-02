@@ -5,6 +5,8 @@ import numpy as np
 from app.play_npz_mujoco import (
     apply_visualization_frame,
     compute_global_joint_positions,
+    quat_mul_batch,
+    quat_rotate_batch,
     load_motion_npz,
     qpos_from_robot_frame,
 )
@@ -76,3 +78,34 @@ def test_apply_visualization_frame_rotates_y_up_positions_to_z_up():
 
     np.testing.assert_allclose(transformed_positions[0, 0], np.array([0.0, 0.0, 1.5], dtype=np.float32), atol=1e-6)
     assert transformed_rotations.shape == rotations.shape
+
+
+def test_quaternion_batch_helpers_match_scalar_behavior():
+    quats = np.array(
+        [
+            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, np.sin(np.pi / 4), np.cos(np.pi / 4)],
+        ],
+        dtype=np.float32,
+    )
+    vecs = np.array(
+        [
+            [1.0, 2.0, 3.0],
+            [1.0, 0.0, 0.0],
+        ],
+        dtype=np.float32,
+    )
+    other = np.array(
+        [
+            [0.0, np.sin(np.pi / 4), 0.0, np.cos(np.pi / 4)],
+            [0.0, 0.0, 0.0, 1.0],
+        ],
+        dtype=np.float32,
+    )
+
+    rotated = quat_rotate_batch(quats, vecs)
+    multiplied = quat_mul_batch(quats, other)
+
+    np.testing.assert_allclose(rotated[0], vecs[0], atol=1e-6)
+    np.testing.assert_allclose(rotated[1], np.array([0.0, 1.0, 0.0], dtype=np.float32), atol=1e-6)
+    assert multiplied.shape == (2, 4)

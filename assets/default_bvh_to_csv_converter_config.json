@@ -2,6 +2,8 @@
 	"import_folder": "soma-retargeter/assets/motions/bvh",
 	"export_folder": "soma-retargeter/assets/motions/test-export",
 	"batch_size": 100,
+	"output_fps": 50,
+	"include_source_data": false,
 	"retargeter": "Newton",
 	"retarget_source": "soma",
 	"retarget_target": "unitree_g1",

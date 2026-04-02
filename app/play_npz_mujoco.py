@@ -137,15 +137,36 @@ def qpos_from_robot_frame(robot_frame: np.ndarray, expected_nq: int) -> np.ndarr
 
 def load_motion_npz(npz_path: str | Path) -> MotionNPZ:
     payload = np.load(npz_path, allow_pickle=False)
+    if "bvh_local_transforms" in payload.files:
+        return MotionNPZ(
+            bvh_local_transforms=np.asarray(
+                payload["bvh_local_transforms"], dtype=np.float32
+            ),
+            bvh_parent_indices=np.asarray(payload["bvh_parent_indices"], dtype=np.int32),
+            bvh_joint_names=payload["bvh_joint_names"].tolist(),
+            fps=float(payload["bvh_sample_rate"]),
+            robot_data=np.asarray(payload["robot_data"], dtype=np.float32),
+            robot_dim_names=payload["robot_dim_names"].tolist(),
+            robot_name=str(payload["robot_name"].tolist()),
+        )
+
+    robot_root_pos = np.asarray(payload["robot_root_pos"], dtype=np.float32)
+    robot_root_quat_wxyz = np.asarray(payload["robot_root_quat"], dtype=np.float32)
+    robot_root_quat_xyzw = robot_root_quat_wxyz[:, [1, 2, 3, 0]]
+    robot_joint_pos = np.asarray(payload["robot_joint_pos"], dtype=np.float32)
+    frame_ids = np.arange(robot_root_pos.shape[0], dtype=np.float32).reshape(-1, 1)
+    robot_data = np.concatenate(
+        (frame_ids, robot_root_pos, robot_root_quat_xyzw, robot_joint_pos), axis=1
+    )
     return MotionNPZ(
         bvh_local_transforms=np.asarray(
-            payload["bvh_local_transforms"], dtype=np.float32
+            payload["human_local_transforms"], dtype=np.float32
         ),
-        bvh_parent_indices=np.asarray(payload["bvh_parent_indices"], dtype=np.int32),
-        bvh_joint_names=payload["bvh_joint_names"].tolist(),
-        fps=float(payload["bvh_sample_rate"]),
-        robot_data=np.asarray(payload["robot_data"], dtype=np.float32),
-        robot_dim_names=payload["robot_dim_names"].tolist(),
+        bvh_parent_indices=np.asarray(payload["human_parent_indices"], dtype=np.int32),
+        bvh_joint_names=payload["human_joint_names"].tolist(),
+        fps=float(payload["fps"]),
+        robot_data=robot_data,
+        robot_dim_names=["Frame", "root_translateX", "root_translateY", "root_translateZ", "root_quatX", "root_quatY", "root_quatZ", "root_quatW", *payload["robot_joint_names"].tolist()],
         robot_name=str(payload["robot_name"].tolist()),
     )
 

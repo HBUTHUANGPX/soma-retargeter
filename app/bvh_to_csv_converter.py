@@ -29,6 +29,10 @@ _UI_NEWTON_PANEL_MARGIN = 10
 _UI_NEWTON_PANEL_ALPHA  = 0.9
 _DEFAULT_COLOR = (235.0 / 255.0, 245.0 / 255.0, 112.0 / 255.0)
 
+
+def _robot_joint_names_from_csv_header(csv_header):
+    return [name.removesuffix("_dof") for name in csv_header[7:]]
+
 class Viewer:
     def __init__(self, viewer, config):
         self.viewer = viewer
@@ -479,7 +483,11 @@ class Viewer:
                         animations[i],
                         csv_buffer,
                         robot_name=self.config["retarget_target"],
-                        csv_header=csv_utils.UnitreeG129DOF_CSVConfig.csv_header,
+                        robot_joint_names=_robot_joint_names_from_csv_header(
+                            csv_utils.UnitreeG129DOF_CSVConfig.csv_header
+                        ),
+                        output_fps=int(self.config.get("output_fps", 50)),
+                        include_source_data=bool(self.config.get("include_source_data", False)),
                     )
 
             nb_retargeted_motions += len(batch)

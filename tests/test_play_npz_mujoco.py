@@ -70,6 +70,30 @@ def test_load_motion_npz_reads_expected_payload(tmp_path: Path):
     assert motion.robot_name == "Q1"
 
 
+def test_load_motion_npz_reads_new_resampled_schema(tmp_path: Path):
+    npz_path = tmp_path / "demo_new_schema.npz"
+    np.savez(
+        npz_path,
+        fps=np.array(50, dtype=np.int32),
+        num_frames=np.array(2, dtype=np.int32),
+        robot_name=np.array("unitree_g1"),
+        robot_joint_names=np.array(["j0", "j1"]),
+        robot_root_pos=np.array([[0.0, 0.0, 0.5], [1.0, 0.0, 0.5]], dtype=np.float32),
+        robot_root_quat=np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]], dtype=np.float32),
+        robot_joint_pos=np.array([[0.1, 0.2], [0.3, 0.4]], dtype=np.float32),
+        human_local_transforms=np.zeros((2, 3, 7), dtype=np.float32),
+        human_parent_indices=np.array([-1, 0, 1], dtype=np.int32),
+        human_joint_names=np.array(["root", "j1", "j2"]),
+    )
+
+    motion = load_motion_npz(npz_path)
+
+    assert motion.fps == 50.0
+    assert motion.robot_name == "unitree_g1"
+    assert motion.robot_data.shape == (2, 1 + 3 + 4 + 2)
+    np.testing.assert_allclose(motion.robot_data[0], np.array([0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0, 0.1, 0.2], dtype=np.float32))
+
+
 def test_apply_visualization_frame_rotates_y_up_positions_to_z_up():
     positions = np.array([[[0.0, 1.5, 0.0]]], dtype=np.float32)
     rotations = np.array([[[0.0, 0.0, 0.0, 1.0]]], dtype=np.float32)

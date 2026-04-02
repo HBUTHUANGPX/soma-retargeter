@@ -2,6 +2,8 @@
 	"import_folder": "assets/motions/bvh",
 	"export_folder": "assets/motions/q1_export",
 	"batch_size": 100,
+	"output_fps": 50,
+	"include_source_data": false,
 	"retargeter": "Newton",
 	"retarget_source": "soma",
 	"retarget_target": "q1",

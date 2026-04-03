@@ -36,9 +36,16 @@ def build_robot_model(asset_path: Path) -> tuple[newton.Model, object]:
 
 
 def set_default_camera(viewer) -> None:
-    viewer.camera.pos = wp.vec3(3.0, 3.0, 1.8)
-    viewer.camera.yaw = 135.0
-    viewer.camera.pitch = -20.0
+    eye = np.array([4.0, 0.0, 2.0], dtype=np.float32)
+    lookat = np.array([0.0, 0.0, 1.0], dtype=np.float32)
+    direction = lookat - eye
+    yaw = np.degrees(np.arctan2(direction[1], direction[0]))
+    horizontal_dist = np.sqrt(direction[0] ** 2 + direction[1] ** 2)
+    pitch = np.degrees(np.arctan2(direction[2], horizontal_dist))
+
+    viewer.camera.pos = wp.vec3(*eye)
+    viewer.camera.yaw = float(yaw)
+    viewer.camera.pitch = float(pitch)
 
 
 class HumanOverlay:

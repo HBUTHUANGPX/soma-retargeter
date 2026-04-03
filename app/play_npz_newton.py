@@ -30,6 +30,7 @@ def default_asset_path(robot_name: str) -> Path:
 
 def build_robot_model(asset_path: Path) -> tuple[newton.Model, object]:
     builder = newton.ModelBuilder()
+    builder.add_ground_plane()
     builder.add_usd(as_newton_usd_source(asset_path))
     model = builder.finalize()
     return model, model.state()

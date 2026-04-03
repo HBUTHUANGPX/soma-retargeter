@@ -15,9 +15,27 @@ from app.motion_npz_player_common import (
 def test_qpos_from_robot_frame_skips_frame_index():
     robot_frame = np.array([12.0, 1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 0.4, 9.0], dtype=np.float32)
 
-    qpos = qpos_from_robot_frame(robot_frame, expected_nq=8)
+    qpos = qpos_from_robot_frame(
+        robot_frame,
+        expected_nq=8,
+        scalar_first=False,
+        quat_order="mujoco",
+    )
 
     np.testing.assert_allclose(qpos, np.array([1.0, 2.0, 3.0, 0.4, 0.1, 0.2, 0.3, 9.0], dtype=np.float32))
+
+
+def test_qpos_from_robot_frame_converts_wxyz_to_newton_xyzw():
+    robot_frame = np.array([7.0, 1.0, 2.0, 3.0, 0.9, 0.1, 0.2, 0.3, 8.0], dtype=np.float32)
+
+    qpos = qpos_from_robot_frame(
+        robot_frame,
+        expected_nq=8,
+        scalar_first=True,
+        quat_order="newton",
+    )
+
+    np.testing.assert_allclose(qpos, np.array([1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 0.9, 8.0], dtype=np.float32))
 
 
 def test_compute_global_joint_positions_accumulates_parent_transforms():
@@ -68,6 +86,7 @@ def test_load_motion_npz_reads_expected_payload(tmp_path: Path):
     assert motion.bvh_joint_names == ["root", "joint1", "joint2"]
     assert motion.fps == 120.0
     assert motion.robot_name == "Q1"
+    assert motion.scalar_first is True
 
 
 def test_load_motion_npz_reads_new_resampled_schema(tmp_path: Path):
@@ -91,6 +110,7 @@ def test_load_motion_npz_reads_new_resampled_schema(tmp_path: Path):
 
     assert motion.fps == 50.0
     assert motion.robot_name == "unitree_g1"
+    assert motion.scalar_first is False
     assert motion.robot_data.shape == (2, 1 + 3 + 4 + 2)
     np.testing.assert_allclose(motion.robot_data[0], np.array([0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 1.0, 0.1, 0.2], dtype=np.float32))
 

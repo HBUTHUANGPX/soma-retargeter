@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 import warp as wp
 import soma_retargeter.utils.pose_utils as pose_utils
 
@@ -98,6 +99,7 @@ class SkeletonRenderer(BaseRenderer):
         count = len(self.bones) * _const_pyramid_vertex_count
         self.line_starts = wp.zeros(count, dtype=wp.vec3)
         self.line_ends = wp.zeros(count, dtype=wp.vec3)
+        self.line_colors = wp.zeros(count, dtype=wp.vec3)
         self.parent_indices = wp.array(self.skeleton.parent_indices, dtype=wp.int32)
 
     def draw(self, viewer, skeleton_instance: SkeletonInstance, id: wp.int32):
@@ -114,10 +116,14 @@ class SkeletonRenderer(BaseRenderer):
                 wp.array(global_transforms, dtype=wp.transform),
                 self.bones],
             outputs=[self.line_starts, self.line_ends])
+        self.line_colors = wp.array(
+            np.tile(np.asarray(skeleton_instance.color, dtype=np.float32), (self.line_starts.size, 1)),
+            dtype=wp.vec3,
+        )
 
         name = f"/skeleton_{id}"
         self._register_unique_id(name)
-        viewer.log_lines(name, self.line_starts, self.line_ends, skeleton_instance.color)
+        viewer.log_lines(name, self.line_starts, self.line_ends, self.line_colors)
 
     def clear(self, viewer):
         """Remove all skeleton lines from the viewer."""

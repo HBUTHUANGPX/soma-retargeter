@@ -13,6 +13,7 @@ class MotionNPZ:
     robot_data: np.ndarray
     robot_dim_names: list[str]
     robot_name: str
+    scalar_first: bool
 
 
 def quat_mul(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
@@ -120,10 +121,22 @@ def compute_global_joint_positions(
     return positions
 
 
-def qpos_from_robot_frame(robot_frame: np.ndarray, expected_nq: int) -> np.ndarray:
+def qpos_from_robot_frame(
+    robot_frame: np.ndarray,
+    expected_nq: int,
+    *,
+    scalar_first: bool,
+    quat_order: str,
+) -> np.ndarray:
     qpos = np.asarray(robot_frame[1:], dtype=np.float32).copy()
     if qpos.shape[0] >= 7:
-        qpos[3:7] = np.array([qpos[6], qpos[3], qpos[4], qpos[5]], dtype=np.float32)
+        quat = qpos[3:7].copy()
+        if quat_order == "mujoco":
+            qpos[3:7] = quat if scalar_first else np.array([quat[3], quat[0], quat[1], quat[2]], dtype=np.float32)
+        elif quat_order == "newton":
+            qpos[3:7] = np.array([quat[1], quat[2], quat[3], quat[0]], dtype=np.float32) if scalar_first else quat
+        else:
+            raise ValueError(f"Unsupported quaternion order target: {quat_order}")
     if qpos.shape[0] != expected_nq:
         raise ValueError(
             f"Robot frame qpos width {qpos.shape[0]} does not match model.nq {expected_nq}."
@@ -144,13 +157,12 @@ def load_motion_npz(npz_path: str | Path) -> MotionNPZ:
             robot_data=np.asarray(payload["robot_data"], dtype=np.float32),
             robot_dim_names=payload["robot_dim_names"].tolist(),
             robot_name=str(payload["robot_name"].tolist()),
+            scalar_first=True,
         )
 
     robot_root_pos = np.asarray(payload["robot_root_pos"], dtype=np.float32)
     robot_root_quat = np.asarray(payload["robot_root_quat"], dtype=np.float32)
     scalar_first = bool(payload["scalar_first"].item()) if "scalar_first" in payload.files else True
-    if scalar_first:
-        robot_root_quat = robot_root_quat[:, [1, 2, 3, 0]]
     robot_joint_pos = np.asarray(payload["robot_joint_pos"], dtype=np.float32)
     frame_ids = np.arange(robot_root_pos.shape[0], dtype=np.float32).reshape(-1, 1)
     robot_data = np.concatenate(
@@ -176,6 +188,7 @@ def load_motion_npz(npz_path: str | Path) -> MotionNPZ:
             *payload["robot_joint_names"].tolist(),
         ],
         robot_name=str(payload["robot_name"].tolist()),
+        scalar_first=scalar_first,
     )
 
 

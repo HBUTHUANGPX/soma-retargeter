@@ -158,7 +158,10 @@ def play_motion(npz_path: Path, xml_path: Path, loop: bool, show_axes: bool) -> 
         frame_idx = 0
         while viewer.is_running():
             qpos = qpos_from_robot_frame(
-                motion.robot_data[frame_idx], expected_nq=model.nq
+                motion.robot_data[frame_idx],
+                expected_nq=model.nq,
+                scalar_first=motion.scalar_first,
+                quat_order="mujoco",
             )
             data.qpos[:] = qpos
             data.qvel[:] = 0.0

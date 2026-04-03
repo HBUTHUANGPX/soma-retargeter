@@ -86,7 +86,12 @@ def play_motion(npz_path: Path, asset_path: Path, loop: bool, show_axes: bool, v
     frame_idx = 0
     sim_time = 0.0
     while viewer.is_running():
-        qpos = qpos_from_robot_frame(motion.robot_data[frame_idx], expected_nq=model.joint_coord_count)
+        qpos = qpos_from_robot_frame(
+            motion.robot_data[frame_idx],
+            expected_nq=model.joint_coord_count,
+            scalar_first=motion.scalar_first,
+            quat_order="newton",
+        )
         wp.copy(model.joint_q, wp.array(qpos, dtype=wp.float32), 0, 0, model.joint_coord_count)
         model.joint_qd.zero_()
         newton.eval_fk(model, model.joint_q, model.joint_qd, state, None)
@@ -103,7 +108,7 @@ def play_motion(npz_path: Path, asset_path: Path, loop: bool, show_axes: bool, v
             if not loop:
                 break
             frame_idx = 0
-
+    print("Playback finished.")
     overlay.clear(viewer)
 def main() -> None:
     import newton.examples
@@ -129,6 +134,7 @@ def main() -> None:
     viewer, args = newton.examples.init(parser)
     motion = load_motion_npz(args.npz)
     asset_path = args.asset_path if args.asset_path is not None else default_asset_path(motion.robot_name)
+    print(f"Using asset path: {asset_path}")
     play_motion(args.npz, asset_path, loop=args.loop, show_axes=args.show_axes, viewer=viewer)
     viewer.close()
 

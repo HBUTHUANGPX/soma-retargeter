@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from app.play_npz_mujoco import (
+from app.motion_npz_player_common import (
     apply_visualization_frame,
     compute_global_joint_positions,
     quat_mul_batch,

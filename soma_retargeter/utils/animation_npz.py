@@ -25,24 +25,6 @@ def _quat_rotate_xyzw(quat: np.ndarray, vec: np.ndarray) -> np.ndarray:
     return (vec + 2.0 * (qw * uv + uuv)).astype(np.float32, copy=False)
 
 
-def _compute_sample_times(sample_rate: float, num_frames: int, output_fps: int) -> np.ndarray:
-    if num_frames <= 0:
-        return np.zeros((0,), dtype=np.float32)
-    if num_frames == 1:
-        return np.zeros((1,), dtype=np.float32)
-
-    duration = (num_frames - 1) / float(sample_rate)
-    times = np.arange(0.0, duration, 1.0 / float(output_fps), dtype=np.float32)
-    if times.size == 0:
-        return np.zeros((1,), dtype=np.float32)
-    return times
-
-
-def _sample_human_local_transforms(animation, output_fps: int) -> np.ndarray:
-    times = _compute_sample_times(animation.sample_rate, animation.num_frames, output_fps)
-    return np.asarray([animation.sample(float(t)) for t in times], dtype=np.float32)
-
-
 def _compute_human_global_transforms(local_transforms: np.ndarray, parent_indices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     num_frames, num_joints = local_transforms.shape[:2]
     global_pos = np.zeros((num_frames, num_joints, 3), dtype=np.float32)
@@ -74,33 +56,31 @@ def _split_robot_motion(robot_motion: np.ndarray) -> tuple[np.ndarray, np.ndarra
     return robot_root_pos, robot_root_quat, robot_joint_pos
 
 
-def _extract_source_robot_motion(csv_buffer) -> np.ndarray:
-    if hasattr(csv_buffer, "data"):
-        return np.asarray(csv_buffer.data, dtype=np.float32)
-    return np.asarray(
-        [csv_buffer.get_data(frame_idx) for frame_idx in range(csv_buffer.num_frames)],
-        dtype=np.float32,
-    )
-
-
-def _resample_robot_motion(csv_buffer, output_fps: int) -> np.ndarray:
-    times = _compute_sample_times(csv_buffer.sample_rate, csv_buffer.num_frames, output_fps)
-    return np.asarray([csv_buffer.sample(float(t)) for t in times], dtype=np.float32)
-
-
-def _build_retarget_payload(animation, csv_buffer, robot_name, robot_joint_names, output_fps, include_source_data) -> dict:
-    skeleton = animation.skeleton
-
-    human_local_transforms = _sample_human_local_transforms(animation, output_fps)
+def _build_retarget_payload(
+    *,
+    fps,
+    skeleton,
+    human_local_transforms,
+    robot_motion,
+    robot_name,
+    robot_joint_names,
+    robot_body_names,
+    robot_body_pos,
+    robot_body_quat,
+    source_fps,
+    source_robot_motion,
+    source_human_local_transforms,
+) -> dict:
+    human_local_transforms = np.asarray(human_local_transforms, dtype=np.float32)
     human_global_pos, human_global_quat = _compute_human_global_transforms(
         human_local_transforms, np.asarray(skeleton.parent_indices, dtype=np.int32)
     )
 
-    robot_motion = _resample_robot_motion(csv_buffer, output_fps)
+    robot_motion = np.asarray(robot_motion, dtype=np.float32)
     robot_root_pos, robot_root_quat, robot_joint_pos = _split_robot_motion(robot_motion)
 
     payload = {
-        "fps": np.asarray(output_fps, dtype=np.int32),
+        "fps": np.asarray(fps, dtype=np.int32),
         "num_frames": np.asarray(human_local_transforms.shape[0], dtype=np.int32),
         "scalar_first": np.asarray(False),
         "robot_name": np.asarray(robot_name),
@@ -118,17 +98,26 @@ def _build_retarget_payload(animation, csv_buffer, robot_name, robot_joint_names
         "human_global_quat": human_global_quat,
     }
 
-    if include_source_data:
-        source_robot_motion = _extract_source_robot_motion(csv_buffer)
+    if robot_body_names is not None and robot_body_pos is not None and robot_body_quat is not None:
+        payload.update(
+            {
+                "robot_body_names": np.asarray(robot_body_names),
+                "robot_body_pos": np.asarray(robot_body_pos, dtype=np.float32),
+                "robot_body_quat": np.asarray(robot_body_quat, dtype=np.float32),
+            }
+        )
+
+    if source_fps is not None and source_robot_motion is not None and source_human_local_transforms is not None:
+        source_robot_motion = np.asarray(source_robot_motion, dtype=np.float32)
         source_robot_root_pos, source_robot_root_quat, source_robot_joint_pos = _split_robot_motion(source_robot_motion)
         payload.update(
             {
-                "source_fps": np.asarray(animation.sample_rate, dtype=np.int32),
-                "source_num_frames": np.asarray(animation.num_frames, dtype=np.int32),
+                "source_fps": np.asarray(source_fps, dtype=np.int32),
+                "source_num_frames": np.asarray(source_human_local_transforms.shape[0], dtype=np.int32),
                 "source_robot_root_pos": source_robot_root_pos,
                 "source_robot_root_quat": source_robot_root_quat,
                 "source_robot_joint_pos": source_robot_joint_pos,
-                "source_human_local_transforms": np.asarray(animation.local_transforms, dtype=np.float32),
+                "source_human_local_transforms": np.asarray(source_human_local_transforms, dtype=np.float32),
             }
         )
 
@@ -137,20 +126,33 @@ def _build_retarget_payload(animation, csv_buffer, robot_name, robot_joint_names
 
 def save_retarget_npz(
     file_path,
-    animation,
-    csv_buffer,
+    *,
+    fps,
+    skeleton,
+    human_local_transforms,
+    robot_motion,
     robot_name,
     robot_joint_names,
-    output_fps: int = 50,
-    include_source_data: bool = False,
+    robot_body_names=None,
+    robot_body_pos=None,
+    robot_body_quat=None,
+    source_fps=None,
+    source_robot_motion=None,
+    source_human_local_transforms=None,
 ) -> None:
     path = Path(file_path)
     payload = _build_retarget_payload(
-        animation,
-        csv_buffer,
+        fps=fps,
+        skeleton=skeleton,
+        human_local_transforms=human_local_transforms,
+        robot_motion=robot_motion,
         robot_name=robot_name,
         robot_joint_names=robot_joint_names,
-        output_fps=output_fps,
-        include_source_data=include_source_data,
+        robot_body_names=robot_body_names,
+        robot_body_pos=robot_body_pos,
+        robot_body_quat=robot_body_quat,
+        source_fps=source_fps,
+        source_robot_motion=source_robot_motion,
+        source_human_local_transforms=source_human_local_transforms,
     )
     np.savez(path, **payload)

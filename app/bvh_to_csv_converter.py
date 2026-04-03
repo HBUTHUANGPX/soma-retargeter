@@ -6,6 +6,7 @@ import newton
 
 import pathlib
 import time
+import numpy as np
 import warp as wp
 
 import soma_retargeter.utils.math_utils as math_utils
@@ -13,6 +14,7 @@ import soma_retargeter.assets.bvh as bvh_utils
 import soma_retargeter.assets.csv as csv_utils
 import soma_retargeter.utils.io_utils as io_utils
 import soma_retargeter.pipelines.utils as pipeline_utils
+import soma_retargeter.utils.newton_utils as newton_utils
 from soma_retargeter.utils.animation_npz import save_retarget_npz
 from soma_retargeter.utils.newton_asset_utils import as_newton_usd_source
 
@@ -32,6 +34,73 @@ _DEFAULT_COLOR = (235.0 / 255.0, 245.0 / 255.0, 112.0 / 255.0)
 
 def _robot_joint_names_from_csv_header(csv_header):
     return [name.removesuffix("_dof") for name in csv_header[7:]]
+
+
+def _robot_asset_source(retarget_target: str) -> str:
+    from pathlib import Path
+
+    if retarget_target == "unitree_g1":
+        return as_newton_usd_source(
+            Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")
+        )
+    if retarget_target == "q1":
+        return as_newton_usd_source(
+            Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")
+        )
+    raise ValueError(f"[ERROR]: Unsupported retarget target [{retarget_target}]")
+
+
+def _create_robot_builder(retarget_target: str) -> newton.ModelBuilder:
+    robot_builder = newton.ModelBuilder()
+    robot_builder.add_usd(_robot_asset_source(retarget_target))
+    return robot_builder
+
+
+def _compute_sample_times(sample_rate: float, num_frames: int, output_fps: int) -> np.ndarray:
+    if num_frames <= 0:
+        return np.zeros((0,), dtype=np.float32)
+    if num_frames == 1:
+        return np.zeros((1,), dtype=np.float32)
+
+    duration = (num_frames - 1) / float(sample_rate)
+    times = np.arange(0.0, duration, 1.0 / float(output_fps), dtype=np.float32)
+    if times.size == 0:
+        return np.zeros((1,), dtype=np.float32)
+    return times
+
+
+def _resample_human_local_transforms(animation, sample_times: np.ndarray) -> np.ndarray:
+    return np.asarray([animation.sample(float(t)) for t in sample_times], dtype=np.float32)
+
+
+def _resample_robot_motion(csv_buffer, sample_times: np.ndarray) -> np.ndarray:
+    return np.asarray([csv_buffer.sample(float(t)) for t in sample_times], dtype=np.float32)
+
+
+def _extract_source_robot_motion(csv_buffer) -> np.ndarray:
+    if hasattr(csv_buffer, "data"):
+        return np.asarray(csv_buffer.data, dtype=np.float32)
+    return np.asarray([csv_buffer.get_data(frame_idx) for frame_idx in range(csv_buffer.num_frames)], dtype=np.float32)
+
+
+def _compute_robot_body_world_states(model, state, robot_motion: np.ndarray):
+    if robot_motion.shape[1] != model.joint_coord_count:
+        raise ValueError(
+            "[ERROR]: Robot motion dim mismatch for FK export. "
+            f"Expected {model.joint_coord_count}, got {robot_motion.shape[1]}"
+        )
+
+    robot_body_pos = np.zeros((robot_motion.shape[0], model.body_count, 3), dtype=np.float32)
+    robot_body_quat = np.zeros((robot_motion.shape[0], model.body_count, 4), dtype=np.float32)
+
+    for frame_idx, frame_q in enumerate(robot_motion):
+        wp.copy(model.joint_q, wp.array(frame_q, dtype=wp.float32), 0, 0, model.joint_coord_count)
+        newton.eval_fk(model, model.joint_q, model.joint_qd, state, None)
+        body_q = state.body_q.numpy()
+        robot_body_pos[frame_idx] = body_q[:, 0:3]
+        robot_body_quat[frame_idx] = body_q[:, 3:7]
+
+    return robot_body_pos, robot_body_quat
 
 class Viewer:
     def __init__(self, viewer, config):
@@ -68,16 +137,11 @@ class Viewer:
         self.viewer.renderer.set_title("BVH to CSV Converter")
         self.viewer.register_ui_callback(lambda ui: self.gui(ui), position="free")
 
-        robot_builder = newton.ModelBuilder()
-        from pathlib import Path
+        robot_builder = _create_robot_builder(self.config['retarget_target'])
         if self.config['retarget_target'] == "unitree_g1":
             self.retarget_target_idx = self.retarget_target_options.index("unitree_g1")
-            robot_builder.add_usd(
-                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")))
         elif self.config['retarget_target'] == "q1":
             self.retarget_target_idx = self.retarget_target_options.index("q1")
-            robot_builder.add_usd(
-                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")))
 
         self.num_robots = 1
         self.robot_offsets = [wp.transform(wp.vec3(0.0, i - (self.num_robots - 1) / 2.0, 0.0), wp.quat_identity()) for i in range(self.num_robots)]
@@ -447,6 +511,11 @@ class Viewer:
         if retarget_pipeline is None:
             print(f"[ERROR]: Invalid retarget solver selected [{retarget_solver}]. Use 'Newton'.")
             exit(-1)
+        output_fps = int(self.config.get("output_fps", 50))
+        include_source_data = bool(self.config.get("include_source_data", False))
+        robot_fk_model = _create_robot_builder(retarget_target).finalize()
+        robot_fk_state = robot_fk_model.state()
+        robot_body_names = [newton_utils.get_name_from_label(label) for label in robot_fk_model.body_label]
 
         nb_retargeted_motions = 0
         start_time = time.time()
@@ -475,19 +544,33 @@ class Viewer:
                 assert(len(csv_buffers) == len(animations))
                 for i in trange(len(csv_buffers), desc="[INFO]: Exporting CSV Files"):
                     csv_buffer = csv_buffers[i]
+                    sample_times = _compute_sample_times(animations[i].sample_rate, animations[i].num_frames, output_fps)
+                    human_local_transforms = _resample_human_local_transforms(animations[i], sample_times)
+                    robot_motion = _resample_robot_motion(csv_buffer, sample_times)
+                    robot_body_pos, robot_body_quat = _compute_robot_body_world_states(
+                        robot_fk_model,
+                        robot_fk_state,
+                        robot_motion,
+                    )
                     dst_path = export_path / pathlib.Path(batch[i]).relative_to(import_path).with_suffix(".csv")
                     dst_path.parent.mkdir(parents=True, exist_ok=True)
                     csv_utils.save_csv(dst_path, csv_buffer)
                     save_retarget_npz(
                         dst_path.with_suffix(".npz"),
-                        animations[i],
-                        csv_buffer,
+                        fps=output_fps,
+                        skeleton=animations[i].skeleton,
+                        human_local_transforms=human_local_transforms,
+                        robot_motion=robot_motion,
                         robot_name=self.config["retarget_target"],
                         robot_joint_names=_robot_joint_names_from_csv_header(
                             csv_utils.UnitreeG129DOF_CSVConfig.csv_header
                         ),
-                        output_fps=int(self.config.get("output_fps", 50)),
-                        include_source_data=bool(self.config.get("include_source_data", False)),
+                        robot_body_names=robot_body_names,
+                        robot_body_pos=robot_body_pos,
+                        robot_body_quat=robot_body_quat,
+                        source_fps=animations[i].sample_rate if include_source_data else None,
+                        source_robot_motion=_extract_source_robot_motion(csv_buffer) if include_source_data else None,
+                        source_human_local_transforms=animations[i].local_transforms if include_source_data else None,
                     )
 
             nb_retargeted_motions += len(batch)

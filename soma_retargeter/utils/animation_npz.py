@@ -25,11 +25,6 @@ def _quat_rotate_xyzw(quat: np.ndarray, vec: np.ndarray) -> np.ndarray:
     return (vec + 2.0 * (qw * uv + uuv)).astype(np.float32, copy=False)
 
 
-def _quat_xyzw_to_wxyz(quat: np.ndarray) -> np.ndarray:
-    quat = np.asarray(quat, dtype=np.float32)
-    return quat[..., [3, 0, 1, 2]]
-
-
 def _compute_sample_times(sample_rate: float, num_frames: int, output_fps: int) -> np.ndarray:
     if num_frames <= 0:
         return np.zeros((0,), dtype=np.float32)
@@ -68,13 +63,13 @@ def _compute_human_global_transforms(local_transforms: np.ndarray, parent_indice
         global_pos[:, joint_idx] = parent_pos + _quat_rotate_xyzw(parent_quat, local_pos[:, joint_idx])
         global_quat_xyzw[:, joint_idx] = _quat_mul_xyzw(parent_quat, local_quat_xyzw[:, joint_idx])
 
-    return global_pos, _quat_xyzw_to_wxyz(global_quat_xyzw)
+    return global_pos, np.asarray(global_quat_xyzw, dtype=np.float32)
 
 
 def _split_robot_motion(robot_motion: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     robot_motion = np.asarray(robot_motion, dtype=np.float32)
     robot_root_pos = robot_motion[:, :3]
-    robot_root_quat = _quat_xyzw_to_wxyz(robot_motion[:, 3:7])
+    robot_root_quat = robot_motion[:, 3:7]
     robot_joint_pos = robot_motion[:, 7:]
     return robot_root_pos, robot_root_quat, robot_joint_pos
 
@@ -107,6 +102,7 @@ def _build_retarget_payload(animation, csv_buffer, robot_name, robot_joint_names
     payload = {
         "fps": np.asarray(output_fps, dtype=np.int32),
         "num_frames": np.asarray(human_local_transforms.shape[0], dtype=np.int32),
+        "scalar_first": np.asarray(False),
         "robot_name": np.asarray(robot_name),
         "robot_joint_names": np.asarray(robot_joint_names),
         "robot_root_pos": robot_root_pos,

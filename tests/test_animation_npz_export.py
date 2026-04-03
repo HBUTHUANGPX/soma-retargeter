@@ -108,10 +108,11 @@ def test_save_retarget_npz_writes_resampled_isaaclab_ready_payload(tmp_path: Pat
 
     assert exported["fps"].item() == 50
     assert exported["num_frames"].item() == 2
+    assert exported["scalar_first"].item() is False
     assert exported["robot_name"].tolist() == "Q1"
     assert exported["robot_joint_names"].tolist() == ["joint_a", "joint_b"]
     np.testing.assert_allclose(exported["robot_root_pos"], np.array([[0.0, 0.0, 0.5], [2.0, 0.0, 0.5]], dtype=np.float32))
-    np.testing.assert_allclose(exported["robot_root_quat"], np.array([[1.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0]], dtype=np.float32))
+    np.testing.assert_allclose(exported["robot_root_quat"], np.array([[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]], dtype=np.float32))
     np.testing.assert_allclose(exported["robot_joint_pos"], np.array([[10.0, 20.0], [12.0, 22.0]], dtype=np.float32))
     assert exported["human_joint_names"].tolist() == ["root", "hand"]
     np.testing.assert_array_equal(exported["human_parent_indices"], np.array([-1, 0], dtype=np.int32))
@@ -121,7 +122,7 @@ def test_save_retarget_npz_writes_resampled_isaaclab_ready_payload(tmp_path: Pat
     assert exported["human_local_transforms"].shape == (2, 2, 7)
     np.testing.assert_allclose(exported["human_global_pos"][0], np.array([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32))
     np.testing.assert_allclose(exported["human_global_pos"][1], np.array([[2.0, 0.0, 0.0], [2.0, 1.0, 0.0]], dtype=np.float32))
-    np.testing.assert_allclose(exported["human_global_quat"][0, 0], np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_allclose(exported["human_global_quat"][0, 0], np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
     assert "source_fps" not in exported.files
 
 
@@ -142,6 +143,6 @@ def test_save_retarget_npz_can_include_minimal_source_payload(tmp_path: Path):
     assert exported["source_fps"].item() == 100
     assert exported["source_num_frames"].item() == 5
     np.testing.assert_allclose(exported["source_robot_root_pos"][0], np.array([0.0, 0.0, 0.5], dtype=np.float32))
-    np.testing.assert_allclose(exported["source_robot_root_quat"][0], np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32))
+    np.testing.assert_allclose(exported["source_robot_root_quat"][0], np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float32))
     np.testing.assert_allclose(exported["source_robot_joint_pos"][0], np.array([10.0, 20.0], dtype=np.float32))
     np.testing.assert_allclose(exported["source_human_local_transforms"][0], AnimationStub().local_transforms[0])

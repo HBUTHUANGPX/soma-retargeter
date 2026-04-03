@@ -151,12 +151,14 @@ def load_motion_npz(npz_path: str | Path) -> MotionNPZ:
         )
 
     robot_root_pos = np.asarray(payload["robot_root_pos"], dtype=np.float32)
-    robot_root_quat_wxyz = np.asarray(payload["robot_root_quat"], dtype=np.float32)
-    robot_root_quat_xyzw = robot_root_quat_wxyz[:, [1, 2, 3, 0]]
+    robot_root_quat = np.asarray(payload["robot_root_quat"], dtype=np.float32)
+    scalar_first = bool(payload["scalar_first"].item()) if "scalar_first" in payload.files else True
+    if scalar_first:
+        robot_root_quat = robot_root_quat[:, [1, 2, 3, 0]]
     robot_joint_pos = np.asarray(payload["robot_joint_pos"], dtype=np.float32)
     frame_ids = np.arange(robot_root_pos.shape[0], dtype=np.float32).reshape(-1, 1)
     robot_data = np.concatenate(
-        (frame_ids, robot_root_pos, robot_root_quat_xyzw, robot_joint_pos), axis=1
+        (frame_ids, robot_root_pos, robot_root_quat, robot_joint_pos), axis=1
     )
     return MotionNPZ(
         bvh_local_transforms=np.asarray(

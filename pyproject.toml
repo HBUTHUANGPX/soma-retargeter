@@ -7,8 +7,20 @@ name = "soma_retargeter"
 dynamic = ["version"]
 license = "Apache-2.0"
 license-files = ["LICENSE", "licenses/**/*.txt"]
-requires-python = ">=3.12"
-dependencies = []
+requires-python = ">=3.11"
+dependencies = [
+    "newton==1.0.0",
+    "warp-lang",
+    "typing_extensions",
+    "pyglet",
+    "numpy",
+    "GitPython",
+    "trimesh",
+    "imgui-bundle==1.92.4",
+    "usd-core==26.3",
+    "scipy",
+    "tqdm",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

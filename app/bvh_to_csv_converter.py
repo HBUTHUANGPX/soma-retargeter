@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import multiprocessing as mp
 import newton
 
 import pathlib
@@ -21,6 +22,7 @@ from soma_retargeter.utils.newton_asset_utils import as_newton_usd_source
 from soma_retargeter.renderers.skeleton_renderer import SkeletonRenderer
 from soma_retargeter.renderers.mesh_renderer import SkeletalMeshRenderer
 from soma_retargeter.renderers.coordinate_renderer import CoordinateRenderer
+from soma_retargeter.animation.animation_buffer import create_animation_buffer_for_skeleton
 from soma_retargeter.animation.skeleton import SkeletonInstance
 from soma_retargeter.utils.space_conversion_utils import SpaceConverter, get_facing_direction_type_from_str
 
@@ -101,6 +103,34 @@ def _compute_robot_body_world_states(model, state, robot_motion: np.ndarray):
         robot_body_quat[frame_idx] = body_q[:, 3:7]
 
     return robot_body_pos, robot_body_quat
+
+
+def _load_bvh_animation_task(task):
+    file_path, bvh_skeleton, expected_num_joints = task
+    _, animation = bvh_utils.load_bvh(file_path, bvh_skeleton)
+    assert expected_num_joints == animation.skeleton.num_joints, (
+        f"[ERROR]: Unexpected number of joints in input motion. Expected {expected_num_joints}, "
+        f"got {animation.skeleton.num_joints}"
+    )
+    return animation
+
+
+def _load_bvh_animations_batch(batch, bvh_skeleton, expected_num_joints):
+    if len(batch) == 0:
+        return []
+
+    cpu_count = os.cpu_count() or 1
+    num_workers = min(len(batch), max(1, cpu_count // 2))
+    tasks = [(file_path, bvh_skeleton, expected_num_joints) for file_path in batch]
+
+    if num_workers <= 1:
+        animations = [_load_bvh_animation_task(task) for task in tasks]
+    else:
+        ctx = mp.get_context("spawn")
+        with ctx.Pool(processes=num_workers) as pool:
+            animations = pool.map(_load_bvh_animation_task, tasks)
+
+    return [create_animation_buffer_for_skeleton(animation, bvh_skeleton) for animation in animations]
 
 class Viewer:
     def __init__(self, viewer, config):
@@ -524,15 +554,11 @@ class Viewer:
             print(f"[INFO]: Processing batch {i+1} of {len(batches)}")
             
             print(f"[INFO]: Loading {len(batch)} animations...")
-            animations = []
-            for file_path in batch:
-                _, animation = bvh_utils.load_bvh(file_path, bvh_skeleton)
-                # All animations should be on the same skeleton
-                assert expected_num_joints == animation.skeleton.num_joints, (
-                    f"[ERROR]: Unexpected number of joints in input motion. Expected {expected_num_joints}, "
-                    f"got {animation.skeleton.num_joints}")
-                
-                animations.append(animation)
+            animations = _load_bvh_animations_batch(
+                batch,
+                bvh_skeleton,
+                expected_num_joints,
+            )
             assert(len(animations) == len(batch))
 
             if (len(animations) > 0):

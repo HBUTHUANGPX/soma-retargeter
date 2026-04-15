@@ -19,3 +19,4 @@ imgui.ini
 .vscode/browse.vc.db-shm
 soma-retargeter/assets/motions/test-export
 assets/motions/soma_uniform_bvh
+assets/motions/soma_uniform_bvh_export

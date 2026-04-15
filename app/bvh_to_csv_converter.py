@@ -41,7 +41,7 @@ def _robot_asset_source(retarget_target: str) -> str:
 
     if retarget_target == "unitree_g1":
         return as_newton_usd_source(
-            Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")
+            Path("/home/hpx/HPX_LOCO_2/mimic_baseline/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")
         )
     if retarget_target == "q1":
         return as_newton_usd_source(

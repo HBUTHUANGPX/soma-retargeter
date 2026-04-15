@@ -76,7 +76,7 @@ class NewtonPipeline:
             self.robot_builder = newton.ModelBuilder()
             self.robot_builder.add_usd(
                 # newton.utils.download_asset("unitree_g1") / "mjcf/g1_29dof_rev_1_0.xml")
-                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline_2/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")))
+                as_newton_usd_source(Path("/home/hpx/HPX_LOCO_2/mimic_baseline/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")))
         elif (self.target_type == pipeline_utils.TargetType.Q1):
             self.robot_builder = newton.ModelBuilder()
             self.robot_builder.add_mjcf(

@@ -590,7 +590,7 @@ def main():
     parser.add_argument(
         "--config",
         type=lambda x: None if x == "None" else str(x),
-        default="./assets/default_bvh_to_csv_converter_config.json",
+        default="soma-retargeter/assets/default_bvh_to_csv_converter_config.json",
         help="Input json config file.")
 
     viewer, args = newton.examples.init(parser)

@@ -17,6 +17,12 @@ def _quat_mul_xyzw(q1: np.ndarray, q2: np.ndarray) -> np.ndarray:
     ).astype(np.float32, copy=False)
 
 
+def _quat_conjugate_xyzw(quat: np.ndarray) -> np.ndarray:
+    conjugate = np.array(quat, dtype=np.float32, copy=True)
+    conjugate[..., :3] *= -1.0
+    return conjugate
+
+
 def _quat_rotate_xyzw(quat: np.ndarray, vec: np.ndarray) -> np.ndarray:
     q_xyz = quat[..., :3]
     qw = quat[..., 3:4]
@@ -56,6 +62,54 @@ def _split_robot_motion(robot_motion: np.ndarray) -> tuple[np.ndarray, np.ndarra
     return robot_root_pos, robot_root_quat, robot_joint_pos
 
 
+def _forward_difference(values: np.ndarray, dt: float) -> np.ndarray:
+    values = np.asarray(values, dtype=np.float32)
+    if values.shape[0] == 0:
+        return np.zeros_like(values, dtype=np.float32)
+    if values.shape[0] == 1 or dt <= 0.0:
+        return np.zeros_like(values, dtype=np.float32)
+
+    diff = (values[1:] - values[:-1]) / dt
+    velocities = np.zeros_like(values, dtype=np.float32)
+    velocities[:-1] = diff
+    velocities[-1] = diff[-1]
+    return velocities
+
+
+def _quat_to_angular_velocity_xyzw(quat: np.ndarray, dt: float) -> np.ndarray:
+    quat = np.asarray(quat, dtype=np.float32)
+    if quat.shape[0] == 0:
+        return np.zeros(quat.shape[:-1] + (3,), dtype=np.float32)
+    if quat.shape[0] == 1 or dt <= 0.0:
+        return np.zeros(quat.shape[:-1] + (3,), dtype=np.float32)
+
+    q_curr = quat[:-1]
+    q_next = quat[1:]
+    q_rel = _quat_mul_xyzw(q_next, _quat_conjugate_xyzw(q_curr))
+
+    negative_w = q_rel[..., 3] < 0.0
+    q_rel[negative_w] *= -1.0
+
+    xyz = q_rel[..., :3]
+    xyz_norm = np.linalg.norm(xyz, axis=-1, keepdims=True)
+    angle = 2.0 * np.arctan2(xyz_norm, q_rel[..., 3:4])
+
+    angular_step = np.zeros_like(xyz, dtype=np.float32)
+    small_angle = xyz_norm[..., 0] < 1e-8
+    if np.any(~small_angle):
+        angular_step[~small_angle] = (
+            xyz[~small_angle] / xyz_norm[~small_angle]
+        ) * angle[~small_angle]
+    if np.any(small_angle):
+        angular_step[small_angle] = 2.0 * xyz[small_angle]
+
+    ang_vel = angular_step / dt
+    velocities = np.zeros(quat.shape[:-1] + (3,), dtype=np.float32)
+    velocities[:-1] = ang_vel
+    velocities[-1] = ang_vel[-1]
+    return velocities.astype(np.float32, copy=False)
+
+
 def _build_retarget_payload(
     *,
     fps,
@@ -78,6 +132,10 @@ def _build_retarget_payload(
 
     robot_motion = np.asarray(robot_motion, dtype=np.float32)
     robot_root_pos, robot_root_quat, robot_joint_pos = _split_robot_motion(robot_motion)
+    dt = 1.0 / float(fps) if float(fps) > 0.0 else 0.0
+    robot_root_lin_vel = _forward_difference(robot_root_pos, dt)
+    robot_root_ang_vel = _quat_to_angular_velocity_xyzw(robot_root_quat, dt)
+    robot_joint_vel = _forward_difference(robot_joint_pos, dt)
 
     payload = {
         "fps": np.asarray(fps, dtype=np.int32),
@@ -88,6 +146,9 @@ def _build_retarget_payload(
         "robot_root_pos": robot_root_pos,
         "robot_root_quat": robot_root_quat,
         "robot_joint_pos": robot_joint_pos,
+        "robot_root_lin_vel": robot_root_lin_vel,
+        "robot_root_ang_vel": robot_root_ang_vel,
+        "robot_joint_vel": robot_joint_vel,
         "human_joint_names": np.asarray(skeleton.joint_names),
         "human_parent_indices": np.asarray(skeleton.parent_indices, dtype=np.int32),
         "human_up_axis": np.asarray(skeleton.up_axis, dtype=np.float32),
@@ -104,6 +165,8 @@ def _build_retarget_payload(
                 "robot_body_names": np.asarray(robot_body_names),
                 "robot_body_pos": np.asarray(robot_body_pos, dtype=np.float32),
                 "robot_body_quat": np.asarray(robot_body_quat, dtype=np.float32),
+                "robot_body_lin_vel": _forward_difference(robot_body_pos, dt),
+                "robot_body_ang_vel": _quat_to_angular_velocity_xyzw(robot_body_quat, dt),
             }
         )
 

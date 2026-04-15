@@ -554,11 +554,20 @@ class Viewer:
             print(f"[INFO]: Processing batch {i+1} of {len(batches)}")
             
             print(f"[INFO]: Loading {len(batch)} animations...")
-            animations = _load_bvh_animations_batch(
-                batch,
-                bvh_skeleton,
-                expected_num_joints,
-            )
+            # animations = _load_bvh_animations_batch(
+            #     batch,
+            #     bvh_skeleton,
+            #     expected_num_joints,
+            # )
+            animations = []
+            for file_path in batch:
+                _, animation = bvh_utils.load_bvh(file_path, bvh_skeleton)
+                # All animations should be on the same skeleton
+                assert expected_num_joints == animation.skeleton.num_joints, (
+                    f"[ERROR]: Unexpected number of joints in input motion. Expected {expected_num_joints}, "
+                    f"got {animation.skeleton.num_joints}")
+                
+                animations.append(animation)
             assert(len(animations) == len(batch))
 
             if (len(animations) > 0):

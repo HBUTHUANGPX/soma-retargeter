@@ -157,6 +157,7 @@ def main() -> None:
     import newton.examples
 
     parser = newton.examples.create_parser()
+    parser.set_defaults(quiet=True)
     parser.add_argument(
         "--npz",
         type=Path,

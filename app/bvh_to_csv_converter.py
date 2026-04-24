@@ -550,8 +550,9 @@ class Viewer:
         nb_retargeted_motions = 0
         start_time = time.time()
 
-        for i, batch in enumerate(batches):
-            print(f"[INFO]: Processing batch {i+1} of {len(batches)}")
+        for batch_index in trange(len(batches), desc="[INFO]: Processing BVH Batches"):
+            batch = batches[batch_index]
+            print(f"[INFO]: Processing batch {batch_index + 1} of {len(batches)}")
             
             print(f"[INFO]: Loading {len(batch)} animations...")
             # animations = _load_bvh_animations_batch(
@@ -622,6 +623,7 @@ def main():
 
     parser = newton.examples.create_parser()
     parser.set_defaults(viewer=("null"))
+    parser.set_defaults(quiet=True)
     parser.add_argument(
         "--config",
         type=lambda x: None if x == "None" else str(x),

@@ -1,0 +1,11 @@
+{
+	"import_folder": "/media/hpx/data_1/data/seed/soma_proportional/bvh/05",
+	"export_folder": "soma-retargeter/assets/motions/soma_proportional_bvh_export",
+	"batch_size": 100,
+	"output_fps": 50,
+	"include_source_data": false,
+	"retargeter": "Newton",
+	"retarget_source": "soma",
+	"retarget_target": "unitree_g1",
+	"retarget_source_facing_direction": "Mujoco"
+}

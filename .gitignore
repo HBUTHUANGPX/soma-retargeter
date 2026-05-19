@@ -20,3 +20,4 @@ imgui.ini
 soma-retargeter/assets/motions/test-export
 assets/motions/soma_uniform_bvh
 assets/motions/soma_uniform_bvh_export
+assets/motions/*

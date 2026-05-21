@@ -21,3 +21,5 @@ soma-retargeter/assets/motions/test-export
 assets/motions/soma_uniform_bvh
 assets/motions/soma_uniform_bvh_export
 assets/motions/*
+assets/soma_proportional_bvh_nonfinite_paths.txt
+assets/soma_proportional_bvh_nonfinite.tsv

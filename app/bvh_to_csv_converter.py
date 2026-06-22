@@ -43,11 +43,11 @@ def _robot_asset_source(retarget_target: str) -> str:
 
     if retarget_target == "unitree_g1":
         return as_newton_usd_source(
-            Path("/home/hpx/HPX_LOCO_2/mimic_baseline/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")
+            Path("/home/jerry_huang/HPX_Loco/mimic_baseline/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")
         )
     if retarget_target == "q1":
         return as_newton_usd_source(
-            Path("/home/hpx/HPX_LOCO_2/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")
+            Path("/home/jerry_huang/HPX_Loco/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")
         )
     raise ValueError(f"[ERROR]: Unsupported retarget target [{retarget_target}]")
 

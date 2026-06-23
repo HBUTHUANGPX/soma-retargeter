@@ -82,6 +82,30 @@ class UnitreeG129DOF_CSVConfig:
 
         return row
 
+@dataclass
+class MDRX27DOF_CSVConfig(UnitreeG129DOF_CSVConfig):
+    name: str = "mdrx_27dof"
+    csv_header: ClassVar[List[str]] = [
+        "Frame",
+        "root_translateX", "root_translateY", "root_translateZ",
+        "root_rotateX", "root_rotateY", "root_rotateZ",
+        "l_hip_pitch_joint_dof", "l_hip_roll_joint_dof", "l_hip_yaw_joint_dof",
+        "l_knee_joint_dof", "l_ankle_pitch_joint_dof", "l_ankle_roll_joint_dof",
+        "r_hip_pitch_joint_dof", "r_hip_roll_joint_dof", "r_hip_yaw_joint_dof",
+        "r_knee_joint_dof", "r_ankle_pitch_joint_dof", "r_ankle_roll_joint_dof",
+        "waist_yaw_joint_dof", "waist_roll_joint_dof", "waist_pitch_joint_dof",
+        "l_shoulder_pitch_joint_dof", "l_shoulder_roll_joint_dof",
+        "l_shoulder_yaw_joint_dof", "l_elbow_joint_dof",
+        "l_wrist_yaw_joint_dof", "l_wrist_roll_joint_dof",
+        "r_shoulder_pitch_joint_dof", "r_shoulder_roll_joint_dof",
+        "r_shoulder_yaw_joint_dof", "r_elbow_joint_dof",
+        "r_wrist_yaw_joint_dof", "r_wrist_roll_joint_dof"
+        ]
+    def to_anim_frame(self, csv_row: np.ndarray) -> np.ndarray:
+        return super().to_anim_frame(csv_row)
+
+    def to_csv_row(self, frame_idx: int, anim_row: np.ndarray) -> List[float]:
+        return super().to_csv_row(frame_idx, anim_row)
 
 def load_csv(file_path: str, fps: float = 120.0, csv_config: RobotCSVConfig = UnitreeG129DOF_CSVConfig()) -> CSVAnimationBuffer:
     """

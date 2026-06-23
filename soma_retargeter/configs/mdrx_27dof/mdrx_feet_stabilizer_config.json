@@ -4,13 +4,13 @@
     "joint_limit_weight": 10.0,
 
     "effectors": {
-        "base_link"               : [30.0,  8.0],
+        "base_link"         : [30.0,  8.0],
         "l_hip_roll_link"   : [1.5 , 0.15],
         "l_knee_link"       : [1.0 ,  1.0],
         "l_ankle_roll_link" : [10.0,  2.0],
-        "r_hip_roll_link"  : [1.5 , 0.15],
-        "r_knee_link"      : [1.0 ,  1.0],
-        "r_ankle_roll_link": [10.0,  2.0]
+        "r_hip_roll_link"   : [1.5 , 0.15],
+        "r_knee_link"       : [1.0 ,  1.0],
+        "r_ankle_roll_link" : [10.0,  2.0]
     },
 
     "ik_root": 0,

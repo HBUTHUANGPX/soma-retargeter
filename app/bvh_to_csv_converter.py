@@ -35,6 +35,7 @@ _DEFAULT_COLOR = (235.0 / 255.0, 245.0 / 255.0, 112.0 / 255.0)
 
 
 def _robot_joint_names_from_csv_header(csv_header):
+    print(f"[INFO]: Extracting robot joint names from CSV header: {csv_header}")
     return [name.removesuffix("_dof") for name in csv_header[7:]]
 
 
@@ -555,7 +556,14 @@ class Viewer:
         robot_fk_model = _create_robot_builder(retarget_target,asset_format).finalize()
         robot_fk_state = robot_fk_model.state()
         robot_body_names = [newton_utils.get_name_from_label(label) for label in robot_fk_model.body_label]
-
+        if self.config["retarget_target"] == "mdrx_27dof":
+            _csv_config = csv_utils.MDRX27DOF_CSVConfig()
+        elif self.config["retarget_target"] == "unitree_g1":
+            _csv_config = csv_utils.UnitreeG129DOF_CSVConfig()
+        csv_header = _csv_config.csv_header
+        print(csv_header)
+        robot_joint_names = _robot_joint_names_from_csv_header(csv_header)
+        print(robot_joint_names)
         nb_retargeted_motions = 0
         start_time = time.time()
 
@@ -587,6 +595,8 @@ class Viewer:
                 csv_buffers = retarget_pipeline.execute()
 
                 assert(len(csv_buffers) == len(animations))
+
+                
                 for i in trange(len(csv_buffers), desc="[INFO]: Exporting CSV Files"):
                     csv_buffer = csv_buffers[i]
                     sample_times = _compute_sample_times(animations[i].sample_rate, animations[i].num_frames, output_fps)
@@ -599,7 +609,7 @@ class Viewer:
                     )
                     dst_path = export_path / pathlib.Path(batch[i]).relative_to(import_path).with_suffix(".csv")
                     dst_path.parent.mkdir(parents=True, exist_ok=True)
-                    csv_utils.save_csv(dst_path, csv_buffer)
+                    csv_utils.save_csv(dst_path, csv_buffer,_csv_config)
                     save_retarget_npz(
                         dst_path.with_suffix(".npz"),
                         fps=output_fps,
@@ -607,9 +617,7 @@ class Viewer:
                         human_local_transforms=human_local_transforms,
                         robot_motion=robot_motion,
                         robot_name=self.config["retarget_target"],
-                        robot_joint_names=_robot_joint_names_from_csv_header(
-                            csv_utils.UnitreeG129DOF_CSVConfig.csv_header
-                        ),
+                        robot_joint_names=robot_joint_names,
                         robot_body_names=robot_body_names,
                         robot_body_pos=robot_body_pos,
                         robot_body_quat=robot_body_quat,

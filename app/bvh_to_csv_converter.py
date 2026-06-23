@@ -46,15 +46,21 @@ def _robot_asset_source(retarget_target: str) -> str:
             Path("/home/jerry_huang/HPX_Loco/mimic_baseline/assets/unitree_model/G1/29dof/usd/g1_29dof_rev_1_0/g1_29dof_rev_1_0.usd")
         )
     if retarget_target == "q1":
-        return as_newton_usd_source(
-            Path("/home/jerry_huang/HPX_Loco/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")
-        )
+        return Path("/home/jerry_huang/HPX_Loco/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml")
+    if retarget_target == "mdrx_27dof":
+        return Path("/home/jerry_huang/HPX_Loco/mimic_baseline/assets/rx_27dof/rx_27dof.xml")
+        
     raise ValueError(f"[ERROR]: Unsupported retarget target [{retarget_target}]")
 
 
-def _create_robot_builder(retarget_target: str) -> newton.ModelBuilder:
+def _create_robot_builder(retarget_target: str,asset_format: str) -> newton.ModelBuilder:
     robot_builder = newton.ModelBuilder()
-    robot_builder.add_usd(_robot_asset_source(retarget_target))
+    is_usd = asset_format == "usd"
+    is_xml = asset_format == "xml"
+    if is_usd:
+        robot_builder.add_usd(_robot_asset_source(retarget_target))
+    elif is_xml:
+        robot_builder.add_mjcf(_robot_asset_source(retarget_target))
     return robot_builder
 
 
@@ -154,7 +160,7 @@ class Viewer:
         self.playback_total_time = 0.0
 
         self.retarget_source_options = ['soma']
-        self.retarget_target_options = ['unitree_g1', 'q1']
+        self.retarget_target_options = ['unitree_g1', 'q1', 'mdrx_27dof']
         self.retarget_solver_options = ['Newton']
         self.retarget_solver_idx     = 0
         self.retarget_source_idx     = 0
@@ -167,11 +173,13 @@ class Viewer:
         self.viewer.renderer.set_title("BVH to CSV Converter")
         self.viewer.register_ui_callback(lambda ui: self.gui(ui), position="free")
 
-        robot_builder = _create_robot_builder(self.config['retarget_target'])
+        robot_builder = _create_robot_builder(self.config['retarget_target'], self.config['asset_format'])
         if self.config['retarget_target'] == "unitree_g1":
             self.retarget_target_idx = self.retarget_target_options.index("unitree_g1")
         elif self.config['retarget_target'] == "q1":
             self.retarget_target_idx = self.retarget_target_options.index("q1")
+        elif self.config['retarget_target'] == "mdrx_27dof":
+            self.retarget_target_idx = self.retarget_target_options.index("mdrx_27dof")
 
         self.num_robots = 1
         self.robot_offsets = [wp.transform(wp.vec3(0.0, i - (self.num_robots - 1) / 2.0, 0.0), wp.quat_identity()) for i in range(self.num_robots)]
@@ -534,6 +542,7 @@ class Viewer:
         retarget_source = self.config['retarget_source']
         retarget_solver = self.config['retargeter']
         retarget_target = self.config["retarget_target"]
+        asset_format = self.config["asset_format"]
         retarget_pipeline = None
         if (retarget_solver == 'Newton'):
             import soma_retargeter.pipelines.newton_pipeline as newton_pipeline
@@ -543,7 +552,7 @@ class Viewer:
             exit(-1)
         output_fps = int(self.config.get("output_fps", 50))
         include_source_data = bool(self.config.get("include_source_data", False))
-        robot_fk_model = _create_robot_builder(retarget_target).finalize()
+        robot_fk_model = _create_robot_builder(retarget_target,asset_format).finalize()
         robot_fk_state = robot_fk_model.state()
         robot_body_names = [newton_utils.get_name_from_label(label) for label in robot_fk_model.body_label]
 

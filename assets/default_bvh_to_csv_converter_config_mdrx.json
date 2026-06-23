@@ -1,0 +1,12 @@
+{
+	"import_folder": "soma-retargeter/assets/motions/bvh",
+	"export_folder": "soma-retargeter/assets/motions/bvh_export_mdrx",
+	"batch_size": 100,
+	"output_fps": 50,
+	"include_source_data": false,
+	"retargeter": "Newton",
+	"retarget_source": "soma",
+	"retarget_target": "mdrx_27dof",
+	"asset_format": "xml",
+	"retarget_source_facing_direction": "Mujoco"
+}

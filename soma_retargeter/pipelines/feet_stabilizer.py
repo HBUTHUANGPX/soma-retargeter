@@ -40,6 +40,10 @@ class FeetStabilizer:
             self.robot_builder = newton.ModelBuilder()
             self.robot_builder.add_mjcf(
                 Path("/home/jerry_huang/HPX_Loco/mimic_baseline/general_motion_tracker_whole_body_teleoperation/general_motion_tracker_whole_body_teleoperation/assets/Q1/mjcf/Q1_wo_hand.xml"))
+        elif self.robot_type == 'mdrx_27dof':
+            self.robot_builder = newton.ModelBuilder()
+            self.robot_builder.add_mjcf(
+                Path("/home/jerry_huang/HPX_Loco/mimic_baseline/assets/rx_27dof/rx_27dof.xml"))
         else:
             raise ValueError(f"[ERROR]: Unknown robot type {self.robot_type}")
         self.num_body_count = self.robot_builder.body_count

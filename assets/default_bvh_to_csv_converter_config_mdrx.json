@@ -1,6 +1,6 @@
 {
-	"import_folder": "soma-retargeter/assets/motions/bvh",
-	"export_folder": "soma-retargeter/assets/motions/bvh_export_mdrx",
+	"import_folder": "soma-retargeter/assets/motions/seed_subsets_acrobatics_flip_roll_bvh",
+	"export_folder": "soma-retargeter/assets/motions/seed_subsets_acrobatics_flip_roll_bvh_export_mdrx",
 	"batch_size": 100,
 	"output_fps": 50,
 	"include_source_data": false,
